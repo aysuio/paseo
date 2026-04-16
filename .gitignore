@@ -27,6 +27,19 @@ pnpm-debug.log*
 *.swo
 *~
 
+# Android / Gradle local artifacts
+.gradle/
+.cxx/
+local.properties
+captures/
+*.iml
+*.hprof
+*.apk
+*.aab
+*.apks
+*.jks
+*.keystore
+
 # TypeScript
 *.tsbuildinfo
 tsconfig.tsbuildinfo

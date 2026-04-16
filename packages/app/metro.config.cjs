@@ -8,6 +8,7 @@ const appNodeModulesRoot = path.resolve(projectRoot, "node_modules");
 const appSrcRoot = path.resolve(projectRoot, "src");
 const serverSrcRoot = path.resolve(projectRoot, "../server/src");
 const relaySrcRoot = path.resolve(projectRoot, "../relay/src");
+const workspaceRoot = path.resolve(projectRoot, "../..");
 const customWebPlatform = (process.env.PASEO_WEB_PLATFORM ?? "")
   .trim()
   .replace(/^\./, "")
@@ -15,11 +16,19 @@ const customWebPlatform = (process.env.PASEO_WEB_PLATFORM ?? "")
 
 const config = getDefaultConfig(projectRoot);
 const defaultResolveRequest = config.resolver.resolveRequest ?? resolve;
+const workspaceAliases = new Map([
+  ["@", appSrcRoot],
+  ["@server", serverSrcRoot],
+]);
 const escapedAppSrcRoot = appSrcRoot
   .split(path.sep)
   .map((segment) => segment.replace(/[|\\{}()[\]^$+*?.]/g, "\\$&"))
   .join("[\\\\/]");
 const pathSeparatorPattern = "[\\\\/]";
+
+config.watchFolders = Array.from(
+  new Set([...(config.watchFolders ?? []), workspaceRoot, serverSrcRoot, relaySrcRoot]),
+);
 
 config.resolver.extraNodeModules = {
   ...(config.resolver.extraNodeModules ?? {}),
@@ -66,7 +75,26 @@ function resolveWithCustomWebOverlay(context, moduleName, platform) {
   return defaultResolveRequest(context, moduleName, platform);
 }
 
+function resolveWorkspaceAlias(moduleName) {
+  for (const [alias, targetRoot] of workspaceAliases) {
+    if (moduleName === alias) {
+      return targetRoot;
+    }
+
+    if (moduleName.startsWith(`${alias}/`)) {
+      return path.join(targetRoot, moduleName.slice(alias.length + 1));
+    }
+  }
+
+  return null;
+}
+
 config.resolver.resolveRequest = (context, moduleName, platform) => {
+  const aliasedModuleName = resolveWorkspaceAlias(moduleName);
+  if (aliasedModuleName) {
+    return resolveWithCustomWebOverlay(context, aliasedModuleName, platform);
+  }
+
   const origin = context.originModulePath;
   if (
     origin &&
